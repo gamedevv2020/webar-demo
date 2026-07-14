@@ -77,6 +77,24 @@
             border: 1px solid #e0e0e0;
         }
 
+        .loading-spinner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border: 4px solid #f0f0f0;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
         .controls {
             margin-top: 20px;
             display: flex;
@@ -204,6 +222,21 @@
             color: #667eea;
             font-weight: bold;
         }
+
+        .error-message {
+            background: #ffebee;
+            border: 1px solid #ef5350;
+            color: #c62828;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 10px;
+            font-size: 12px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -216,18 +249,24 @@
         <div class="content">
             <!-- Left: 3D Viewer -->
             <div class="viewer-section">
-                <model-viewer
-                    id="viewer"
-                    src="YOUR_MODEL.glb"
-                    alt="3D Product Model"
-                    ar
-                    ar-modes="webxr scene-viewer quick-look"
-                    camera-controls
-                    auto-rotate
-                    shadow-intensity="1"
-                >
-                    <div class="progress-bar" slot="progress-bar"></div>
-                </model-viewer>
+                <div style="position: relative;">
+                    <model-viewer
+                        id="viewer"
+                        src="./chair.glb"
+                        alt="3D Product Model"
+                        ar
+                        ar-modes="webxr scene-viewer quick-look"
+                        camera-controls
+                        auto-rotate
+                        shadow-intensity="1"
+                        exposure="1"
+                    >
+                        <div class="progress-bar" slot="progress-bar"></div>
+                    </model-viewer>
+                    <div class="loading-spinner" id="loadingSpinner"></div>
+                </div>
+
+                <div class="error-message" id="errorMessage"></div>
 
                 <div class="controls">
                     <button class="btn-ar" onclick="viewAR()">📱 Launch AR</button>
@@ -263,18 +302,52 @@
 
     <script>
         // Configuration
-        const MODEL_FILE = "chair.glb"; // Change this to your GLB file path
-        const PRODUCT_NAME = "Product";     // Change this to your product name
+        const MODEL_FILE = "chair.glb";
+        const PRODUCT_NAME = "Product";
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('Page loaded, initializing...');
             generateQR();
+            setupModelViewer();
         });
 
-        // Generate QR code pointing to current URL
+        // Setup model viewer with error handling
+        function setupModelViewer() {
+            const viewer = document.getElementById('viewer');
+            const spinner = document.getElementById('loadingSpinner');
+            const errorDiv = document.getElementById('errorMessage');
+
+            console.log('Model src:', viewer.src);
+
+            // Model loaded successfully
+            viewer.addEventListener('load', function() {
+                console.log('✓ Model loaded successfully!');
+                spinner.style.display = 'none';
+                errorDiv.classList.remove('show');
+            });
+
+            // Model failed to load
+            viewer.addEventListener('error', function(e) {
+                console.error('✗ Model failed to load:', e);
+                spinner.style.display = 'none';
+                errorDiv.classList.add('show');
+                errorDiv.innerHTML = '⚠️ Failed to load 3D model. Check browser console (F12) for details.';
+            });
+
+            // Check if model is already loaded (cached)
+            setTimeout(() => {
+                if (viewer.modelIsVisible) {
+                    console.log('✓ Model already visible');
+                    spinner.style.display = 'none';
+                }
+            }, 2000);
+        }
+
+        // Generate QR code
         function generateQR() {
             const qrcodeDiv = document.getElementById('qrcode');
-            qrcodeDiv.innerHTML = ''; // Clear previous QR
+            qrcodeDiv.innerHTML = '';
             new QRCode(qrcodeDiv, {
                 text: window.location.href,
                 width: 180,
@@ -287,16 +360,22 @@
         // Launch AR view
         function viewAR() {
             const viewer = document.getElementById('viewer');
-            viewer.activateAR();
+            console.log('Launching AR... Model visible:', viewer.modelIsVisible);
+            
+            if (viewer.modelIsVisible) {
+                viewer.activateAR();
+            } else {
+                alert('⏳ Model is still loading. Please wait a moment and try again.');
+            }
         }
 
-        // Reset 3D view to default
+        // Reset view
         function resetView() {
             const viewer = document.getElementById('viewer');
             viewer.resetTurntable();
         }
 
-        // Copy link to clipboard
+        // Copy link
         function copyLink() {
             const url = window.location.href;
             navigator.clipboard.writeText(url).then(() => {
