@@ -237,9 +237,73 @@
         .error-message.show {
             display: block;
         }
+
+        .toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 9999;
+            max-width: 300px;
+        }
+
+        .toast {
+            background: #333;
+            color: white;
+            padding: 16px;
+            border-radius: 8px;
+            margin-top: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            animation: slideIn 0.3s ease-out;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .toast.success {
+            background: #4caf50;
+        }
+
+        .toast.error {
+            background: #f44336;
+        }
+
+        .toast.info {
+            background: #2196f3;
+        }
+
+        .toast.warning {
+            background: #ff9800;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+        }
+
+        .toast.hide {
+            animation: slideOut 0.3s ease-out forwards;
+        }
     </style>
 </head>
 <body>
+    <div class="toast-container" id="toastContainer"></div>
+    
     <div class="container">
         <div class="header">
             <h1>🛋️ View in Your Space</h1>
@@ -305,9 +369,26 @@
         const MODEL_FILE = "chair.glb";
         const PRODUCT_NAME = "Product";
 
+        // Toast notification system
+        function showToast(message, type = 'info', duration = 4000) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+
+            console.log(`[${type.toUpperCase()}] ${message}`);
+
+            setTimeout(() => {
+                toast.classList.add('hide');
+                setTimeout(() => toast.remove(), 300);
+            }, duration);
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
             console.log('Page loaded, initializing...');
+            showToast('📍 Loading page...', 'info', 2000);
             generateQR();
             setupModelViewer();
         });
@@ -319,12 +400,14 @@
             const errorDiv = document.getElementById('errorMessage');
 
             console.log('Model src:', viewer.src);
+            showToast('⏳ Loading 3D model...', 'info');
 
             // Model loaded successfully
             viewer.addEventListener('load', function() {
                 console.log('✓ Model loaded successfully!');
                 spinner.style.display = 'none';
                 errorDiv.classList.remove('show');
+                showToast('✅ Model loaded! Ready for AR', 'success', 3000);
             });
 
             // Model failed to load
@@ -333,6 +416,7 @@
                 spinner.style.display = 'none';
                 errorDiv.classList.add('show');
                 errorDiv.innerHTML = '⚠️ Failed to load 3D model. Check browser console (F12) for details.';
+                showToast('❌ Failed to load model', 'error', 5000);
             });
 
             // Check if model is already loaded (cached)
@@ -340,6 +424,7 @@
                 if (viewer.modelIsVisible) {
                     console.log('✓ Model already visible');
                     spinner.style.display = 'none';
+                    showToast('✅ Model ready!', 'success', 2000);
                 }
             }, 2000);
         }
@@ -360,45 +445,63 @@
         // Launch AR view
         function viewAR() {
             const viewer = document.getElementById('viewer');
+            showToast('🚀 Launching AR...', 'info', 2000);
             console.log('Launching AR... Model visible:', viewer.modelIsVisible);
             
             try {
-                if (viewer.modelIsVisible) {
-                    // Try activateAR first
-                    if (typeof viewer.activateAR === 'function') {
-                        viewer.activateAR();
+                if (!viewer.modelIsVisible) {
+                    showToast('⏳ Model still loading, wait a moment...', 'warning', 3000);
+                    return;
+                }
+
+                showToast('📱 Opening camera (check device)...', 'info', 2000);
+                
+                // Method 1: activateAR
+                if (typeof viewer.activateAR === 'function') {
+                    console.log('Using activateAR method');
+                    viewer.activateAR();
+                    showToast('✅ AR activated!', 'success', 2000);
+                } 
+                // Method 2: Click AR button in shadow DOM
+                else if (viewer.shadowRoot) {
+                    const arButton = viewer.shadowRoot.querySelector('[ar-button]') || 
+                                    viewer.shadowRoot.querySelector('button[aria-label*="View"]');
+                    if (arButton) {
+                        console.log('Clicking AR button in shadow DOM');
+                        arButton.click();
+                        showToast('✅ AR button clicked!', 'success', 2000);
                     } else {
-                        // Fallback: directly trigger AR with setAttribute
-                        console.log('Using fallback AR method');
-                        viewer.setAttribute('ar', 'true');
-                        // Simulate AR click
-                        setTimeout(() => {
-                            const arButton = viewer.shadowRoot?.querySelector('[aria-label*="View in"]');
-                            if (arButton) arButton.click();
-                        }, 500);
+                        throw new Error('AR button not found in shadow DOM');
                     }
-                } else {
-                    alert('⏳ Model is still loading. Please wait a moment and try again.');
+                }
+                // Method 3: Direct AR attribute
+                else {
+                    console.log('Using fallback AR method');
+                    viewer.setAttribute('ar', 'true');
+                    showToast('✅ AR mode activated!', 'success', 2000);
                 }
             } catch (e) {
                 console.error('AR Error:', e);
-                alert('AR not supported on this device or model not ready');
+                showToast(`❌ AR Error: ${e.message}`, 'error', 5000);
             }
         }
 
         // Reset view
         function resetView() {
             const viewer = document.getElementById('viewer');
+            showToast('↻ Resetting view...', 'info', 1500);
             try {
                 if (typeof viewer.resetTurntable === 'function') {
                     viewer.resetTurntable();
+                    showToast('✅ View reset!', 'success', 1500);
                 } else {
-                    // Fallback: manually reset camera
                     console.log('Using fallback reset method');
                     viewer.cameraOrbit = '0deg 75deg 105%';
+                    showToast('✅ View reset!', 'success', 1500);
                 }
             } catch (e) {
                 console.error('Reset Error:', e);
+                showToast(`❌ Reset failed: ${e.message}`, 'error', 3000);
             }
         }
 
@@ -409,10 +512,14 @@
                 const btn = event.target;
                 btn.classList.add('copied');
                 btn.textContent = '✓ Copied!';
+                showToast('📋 Link copied to clipboard!', 'success', 2000);
                 setTimeout(() => {
                     btn.classList.remove('copied');
                     btn.textContent = '📋 Copy Link';
                 }, 2000);
+            }).catch(err => {
+                showToast('❌ Copy failed', 'error', 2000);
+                console.error('Copy error:', err);
             });
         }
     </script>
