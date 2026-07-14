@@ -362,17 +362,44 @@
             const viewer = document.getElementById('viewer');
             console.log('Launching AR... Model visible:', viewer.modelIsVisible);
             
-            if (viewer.modelIsVisible) {
-                viewer.activateAR();
-            } else {
-                alert('⏳ Model is still loading. Please wait a moment and try again.');
+            try {
+                if (viewer.modelIsVisible) {
+                    // Try activateAR first
+                    if (typeof viewer.activateAR === 'function') {
+                        viewer.activateAR();
+                    } else {
+                        // Fallback: directly trigger AR with setAttribute
+                        console.log('Using fallback AR method');
+                        viewer.setAttribute('ar', 'true');
+                        // Simulate AR click
+                        setTimeout(() => {
+                            const arButton = viewer.shadowRoot?.querySelector('[aria-label*="View in"]');
+                            if (arButton) arButton.click();
+                        }, 500);
+                    }
+                } else {
+                    alert('⏳ Model is still loading. Please wait a moment and try again.');
+                }
+            } catch (e) {
+                console.error('AR Error:', e);
+                alert('AR not supported on this device or model not ready');
             }
         }
 
         // Reset view
         function resetView() {
             const viewer = document.getElementById('viewer');
-            viewer.resetTurntable();
+            try {
+                if (typeof viewer.resetTurntable === 'function') {
+                    viewer.resetTurntable();
+                } else {
+                    // Fallback: manually reset camera
+                    console.log('Using fallback reset method');
+                    viewer.cameraOrbit = '0deg 75deg 105%';
+                }
+            } catch (e) {
+                console.error('Reset Error:', e);
+            }
         }
 
         // Copy link
