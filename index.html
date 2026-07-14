@@ -1,527 +1,837 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebAR Product Viewer</title>
-    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+<!-- ============================================================
+     WebAR Product Viewer — single-file template
+     ------------------------------------------------------------
+     CUSTOMIZE FOR EACH CLIENT (under 5 minutes):
+       1. Drop the client's model.glb next to this file.
+       2. Edit the CONFIG object at the top of the <script> below
+          (product name, tagline, brand name, model file).
+       3. Edit the CSS variables in :root below (brand colors).
+       4. Optional: drop a matching .usdz next to the .glb for
+          iOS Quick Look — it is auto-detected by filename.
+     No build step. Deploy to any static host (Vercel, Netlify).
+     ============================================================ -->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#101418">
+<meta name="description" content="Interactive 3D product viewer with augmented reality. View this product in your own space.">
+<meta property="og:title" content="View in Your Space — WebAR Product Viewer">
+<meta property="og:description" content="Explore this product in 3D and place it in your room with augmented reality.">
+<title>View in Your Space — WebAR Product Viewer</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill='%235b5bd6' d='M16 2 3 9v14l13 7 13-7V9L16 2zm0 3.3L25.6 10 16 15.2 6.4 10 16 5.3zM6 12.6l9 4.9v9.2l-9-4.9v-9.2zm20 0v9.2l-9 4.9v-9.2l9-4.9z'/%3E%3C/svg%3E">
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
+<!-- model-viewer: Google's web component for 3D + AR (same tech Shopify uses) -->
+<script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
+<!-- QR code generation, fully client-side -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
 
-        .container {
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            max-width: 900px;
-            width: 100%;
-            overflow: hidden;
-        }
+<style>
+/* ==========================================================
+   1. BRANDING — edit these variables per client
+   ========================================================== */
+:root{
+  --brand:          #5b5bd6;   /* primary brand color        */
+  --brand-strong:   #4a4ac4;   /* hover / pressed            */
+  --brand-soft:     #eef0fb;   /* tinted backgrounds         */
+  --accent:         #16a34a;   /* success                    */
+  --danger:         #dc2626;   /* errors                     */
+  --warn:           #d97706;   /* warnings                   */
 
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px 20px;
-            text-align: center;
-        }
+  --bg:             #f4f5f7;
+  --surface:        #ffffff;
+  --surface-2:      #fafbfc;
+  --border:         #e4e7ec;
+  --text:           #16181d;
+  --text-2:         #5b616e;
+  --text-3:         #8a909c;
 
-        .header h1 {
-            font-size: 28px;
-            margin-bottom: 8px;
-        }
+  --radius:         16px;
+  --radius-sm:      10px;
+  --shadow-1:       0 1px 2px rgba(16,20,24,.06), 0 1px 3px rgba(16,20,24,.08);
+  --shadow-2:       0 8px 30px rgba(16,20,24,.12);
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
 
-        .header p {
-            font-size: 14px;
-            opacity: 0.9;
-        }
+/* ==========================================================
+   2. BASE
+   ========================================================== */
+*,*::before,*::after{ box-sizing:border-box; margin:0; padding:0; }
+html{ -webkit-text-size-adjust:100%; }
+body{
+  font-family:var(--font);
+  background:var(--bg);
+  color:var(--text);
+  line-height:1.55;
+  min-height:100vh;
+  min-height:100dvh;
+  display:flex;
+  flex-direction:column;
+  -webkit-font-smoothing:antialiased;
+}
+button{ font-family:inherit; cursor:pointer; }
+:focus-visible{ outline:3px solid var(--brand); outline-offset:2px; border-radius:6px; }
+::selection{ background:var(--brand); color:#fff; }
 
-        .content {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-            padding: 30px;
-        }
+.visually-hidden{
+  position:absolute; width:1px; height:1px; overflow:hidden;
+  clip:rect(0 0 0 0); clip-path:inset(50%); white-space:nowrap;
+}
 
-        @media (max-width: 768px) {
-            .content {
-                grid-template-columns: 1fr;
-                gap: 20px;
-                padding: 20px;
-            }
-        }
+/* ==========================================================
+   3. HEADER
+   ========================================================== */
+.site-header{
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  padding:.85rem 1.25rem;
+}
+.site-header .inner{
+  max-width:1120px; margin:0 auto;
+  display:flex; align-items:center; gap:.75rem;
+}
+.brand-mark{
+  width:34px; height:34px; flex:none;
+  display:grid; place-items:center;
+  background:var(--brand-soft); border-radius:9px; color:var(--brand);
+}
+.brand-mark svg{ width:20px; height:20px; }
+.brand-name{ font-weight:700; font-size:.95rem; letter-spacing:-.01em; }
+.brand-sub{ font-size:.75rem; color:var(--text-3); }
+.badge-ar{
+  margin-left:auto; flex:none;
+  display:inline-flex; align-items:center; gap:.4rem;
+  font-size:.72rem; font-weight:600; color:var(--brand);
+  background:var(--brand-soft); border:1px solid transparent;
+  padding:.3rem .65rem; border-radius:999px; white-space:nowrap;
+}
+.badge-ar .dot{
+  width:7px; height:7px; border-radius:50%; background:var(--brand);
+  animation:pulse 2.2s ease-in-out infinite;
+}
+@keyframes pulse{ 0%,100%{opacity:1} 50%{opacity:.35} }
 
-        .viewer-section {
-            display: flex;
-            flex-direction: column;
-        }
+/* ==========================================================
+   4. LAYOUT
+   ========================================================== */
+main{
+  flex:1; width:100%; max-width:1120px; margin:0 auto;
+  padding:1rem 1.25rem 2rem;
+}
+.product-intro{ padding:.75rem 0 1rem; }
+.product-intro h1{
+  font-size:clamp(1.35rem, 3.5vw, 1.75rem);
+  letter-spacing:-.02em; font-weight:750;
+}
+.product-intro p{ color:var(--text-2); font-size:.95rem; margin-top:.15rem; }
 
-        model-viewer {
-            width: 100%;
-            height: 400px;
-            border-radius: 12px;
-            background: #f5f5f5;
-            border: 1px solid #e0e0e0;
-        }
+.layout{ display:grid; grid-template-columns:1fr; gap:1.25rem; }
+@media (min-width: 920px){
+  .layout{ grid-template-columns:minmax(0,1.55fr) minmax(300px,1fr); align-items:start; }
+}
 
-        .loading-spinner {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            border: 4px solid #f0f0f0;
-            border-top: 4px solid #667eea;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-        }
+/* ==========================================================
+   5. VIEWER CARD
+   ========================================================== */
+.viewer-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow-1);
+  overflow:hidden;
+  position:relative;
+}
+.viewer-stage{ position:relative; }
+model-viewer{
+  width:100%;
+  height:clamp(320px, 58vh, 560px);
+  display:block;
+  background:
+    radial-gradient(120% 90% at 50% 10%, #ffffff 0%, #eef0f4 100%);
+  --poster-color:transparent;
+  --progress-bar-color:transparent; /* we render our own progress bar */
+}
 
-        @keyframes spin {
-            0% { transform: translate(-50%, -50%) rotate(0deg); }
-            100% { transform: translate(-50%, -50%) rotate(360deg); }
-        }
+/* custom top progress bar */
+.progress-track{
+  position:absolute; top:0; left:0; right:0; height:3px;
+  background:transparent; z-index:5; pointer-events:none;
+}
+.progress-track .bar{
+  height:100%; width:0%;
+  background:var(--brand);
+  transition:width .25s ease;
+  border-radius:0 3px 3px 0;
+}
+.progress-track.done .bar{ opacity:0; transition:opacity .5s ease .3s, width .25s ease; }
 
-        .controls {
-            margin-top: 20px;
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
+/* loading overlay */
+.overlay{
+  position:absolute; inset:0; z-index:4;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:.9rem; text-align:center; padding:1.5rem;
+  background:linear-gradient(180deg, rgba(255,255,255,.88), rgba(244,245,247,.88));
+  backdrop-filter:blur(2px);
+  transition:opacity .35s ease, visibility .35s ease;
+}
+.overlay[hidden]{ display:none; }
+.overlay.fade-out{ opacity:0; visibility:hidden; }
+.spinner{
+  width:46px; height:46px; border-radius:50%;
+  border:4px solid var(--brand-soft);
+  border-top-color:var(--brand);
+  animation:spin .9s linear infinite;
+}
+@keyframes spin{ to{ transform:rotate(360deg); } }
+.overlay .load-title{ font-weight:650; font-size:.95rem; }
+.overlay .load-detail{ font-size:.82rem; color:var(--text-2); font-variant-numeric:tabular-nums; }
 
-        button {
-            flex: 1;
-            min-width: 120px;
-            padding: 12px 16px;
-            border: none;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
+/* error state inside overlay */
+.overlay.is-error .spinner{ display:none; }
+.error-icon{
+  width:46px; height:46px; border-radius:50%;
+  display:grid; place-items:center;
+  background:#fdeaea; color:var(--danger); font-size:1.3rem; font-weight:700;
+}
+.btn-retry{
+  margin-top:.25rem;
+  background:var(--surface); color:var(--text);
+  border:1px solid var(--border); border-radius:var(--radius-sm);
+  padding:.55rem 1.1rem; font-size:.85rem; font-weight:600;
+  box-shadow:var(--shadow-1);
+}
+.btn-retry:hover{ background:var(--surface-2); }
 
-        .btn-ar {
-            background: #667eea;
-            color: white;
-        }
+/* viewer toolbar (floating, top-right) */
+.viewer-tools{
+  position:absolute; top:.75rem; right:.75rem; z-index:6;
+  display:flex; gap:.4rem;
+}
+.tool-btn{
+  width:38px; height:38px; border-radius:10px;
+  display:grid; place-items:center;
+  background:rgba(255,255,255,.92); color:var(--text-2);
+  border:1px solid var(--border);
+  box-shadow:var(--shadow-1);
+  transition:color .15s ease, background .15s ease, transform .1s ease;
+}
+.tool-btn:hover{ color:var(--brand); background:#fff; }
+.tool-btn:active{ transform:scale(.94); }
+.tool-btn[aria-pressed="true"]{ color:var(--brand); background:var(--brand-soft); border-color:var(--brand); }
+.tool-btn svg{ width:19px; height:19px; }
 
-        .btn-ar:hover {
-            background: #5568d3;
-            transform: translateY(-2px);
-            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.4);
-        }
+/* action row under the viewer */
+.viewer-actions{
+  display:flex; gap:.6rem; flex-wrap:wrap;
+  padding:.9rem; border-top:1px solid var(--border);
+  background:var(--surface);
+}
+.btn{
+  flex:1 1 150px;
+  display:inline-flex; align-items:center; justify-content:center; gap:.5rem;
+  padding:.8rem 1rem; border-radius:var(--radius-sm);
+  font-size:.92rem; font-weight:650; letter-spacing:.005em;
+  border:1px solid transparent;
+  transition:background .15s ease, transform .1s ease, box-shadow .15s ease;
+  min-height:48px; /* comfortable touch target */
+}
+.btn svg{ width:18px; height:18px; flex:none; }
+.btn:active{ transform:translateY(1px); }
+.btn-primary{
+  background:var(--brand); color:#fff;
+  box-shadow:0 2px 10px color-mix(in srgb, var(--brand) 35%, transparent);
+}
+.btn-primary:hover{ background:var(--brand-strong); }
+.btn-primary:disabled{ opacity:.55; cursor:not-allowed; box-shadow:none; }
+.btn-secondary{
+  background:var(--surface); color:var(--text);
+  border-color:var(--border);
+}
+.btn-secondary:hover{ background:var(--surface-2); }
 
-        .btn-reset {
-            background: #f0f0f0;
-            color: #333;
-            border: 1px solid #ddd;
-        }
+/* ==========================================================
+   6. SIDEBAR
+   ========================================================== */
+.side{ display:flex; flex-direction:column; gap:1.25rem; }
+.card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow-1);
+  padding:1.1rem 1.2rem;
+}
+.card h2{
+  font-size:.78rem; font-weight:700; text-transform:uppercase;
+  letter-spacing:.07em; color:var(--text-3); margin-bottom:.75rem;
+}
 
-        .btn-reset:hover {
-            background: #e8e8e8;
-        }
+/* steps */
+.steps{ list-style:none; display:flex; flex-direction:column; gap:.7rem; }
+.steps li{ display:flex; gap:.7rem; align-items:flex-start; font-size:.875rem; color:var(--text-2); }
+.steps .num{
+  flex:none; width:22px; height:22px; margin-top:.05rem;
+  border-radius:50%; background:var(--brand-soft); color:var(--brand);
+  font-size:.72rem; font-weight:700; display:grid; place-items:center;
+}
+.steps strong{ color:var(--text); font-weight:650; }
 
-        .info-section {
-            display: flex;
-            flex-direction: column;
-        }
+/* model info */
+.spec-grid{ display:grid; grid-template-columns:1fr 1fr; gap:.55rem .9rem; }
+.spec{ font-size:.85rem; }
+.spec dt{ color:var(--text-3); font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; }
+.spec dd{ font-weight:650; font-variant-numeric:tabular-nums; }
 
-        .info-card {
-            background: #f9f9f9;
-            border-left: 4px solid #667eea;
-            padding: 16px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
+/* QR card */
+.qr-card{ text-align:center; }
+.qr-frame{
+  display:inline-grid; place-items:center;
+  padding:.8rem; margin:0 auto .35rem;
+  background:#fff; border:1px solid var(--border); border-radius:12px;
+  min-width:176px; min-height:176px;
+}
+#qrcode img, #qrcode canvas{ display:block; width:150px !important; height:150px !important; }
+.qr-fallback{ font-size:.75rem; color:var(--text-2); word-break:break-all; max-width:200px; }
+.qr-hint{ font-size:.8rem; color:var(--text-2); margin-bottom:.85rem; }
+.share-row{ display:flex; gap:.5rem; }
+.share-row .btn{ flex:1; min-height:42px; padding:.6rem .8rem; font-size:.85rem; }
 
-        .info-card h3 {
-            font-size: 14px;
-            color: #667eea;
-            margin-bottom: 8px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
+/* footer */
+.site-footer{
+  border-top:1px solid var(--border);
+  padding:1rem 1.25rem; text-align:center;
+  font-size:.78rem; color:var(--text-3);
+}
+.site-footer a{ color:var(--text-2); text-decoration:none; font-weight:600; }
 
-        .info-card p {
-            font-size: 13px;
-            color: #666;
-            line-height: 1.6;
-        }
+/* ==========================================================
+   7. TOASTS
+   ========================================================== */
+.toast-region{
+  position:fixed; z-index:1000;
+  bottom:calc(1rem + env(safe-area-inset-bottom, 0px)); right:1rem; left:1rem;
+  display:flex; flex-direction:column; align-items:flex-end; gap:.5rem;
+  pointer-events:none;
+}
+@media (min-width:640px){ .toast-region{ left:auto; width:340px; } }
+.toast{
+  pointer-events:auto;
+  display:flex; align-items:flex-start; gap:.6rem;
+  width:100%; max-width:340px;
+  background:#1c2027; color:#f4f5f7;
+  border-radius:12px; padding:.75rem .9rem;
+  font-size:.85rem; line-height:1.45;
+  box-shadow:var(--shadow-2);
+  border-left:4px solid var(--text-3);
+  animation:toast-in .28s cubic-bezier(.21,1.02,.73,1) both;
+}
+.toast.success{ border-left-color:var(--accent); }
+.toast.error{   border-left-color:var(--danger); }
+.toast.info{    border-left-color:var(--brand); }
+.toast.warning{ border-left-color:var(--warn); }
+.toast .t-icon{ flex:none; font-size:.95rem; line-height:1.4; }
+.toast .t-close{
+  margin-left:auto; flex:none;
+  background:none; border:none; color:#9aa1ad; font-size:1rem; line-height:1;
+  padding:.1rem .2rem; border-radius:4px;
+}
+.toast .t-close:hover{ color:#fff; }
+.toast.hide{ animation:toast-out .25s ease forwards; }
+@keyframes toast-in{ from{ transform:translateY(12px); opacity:0; } to{ transform:none; opacity:1; } }
+@keyframes toast-out{ to{ transform:translateY(8px); opacity:0; } }
 
-        .qr-section {
-            background: white;
-            border: 2px solid #e0e0e0;
-            border-radius: 12px;
-            padding: 20px;
-            text-align: center;
-        }
-
-        #qrcode {
-            display: inline-block;
-            margin-bottom: 12px;
-        }
-
-        .qr-section p {
-            font-size: 12px;
-            color: #999;
-        }
-
-        .copy-btn {
-            width: 100%;
-            margin-top: 12px;
-            padding: 10px;
-            background: #f0f0f0;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 12px;
-            cursor: pointer;
-            color: #333;
-            transition: all 0.3s ease;
-        }
-
-        .copy-btn:hover {
-            background: #e8e8e8;
-        }
-
-        .copy-btn.copied {
-            background: #4caf50;
-            color: white;
-            border-color: #4caf50;
-        }
-
-        .feature-list {
-            list-style: none;
-            font-size: 13px;
-            color: #666;
-        }
-
-        .feature-list li {
-            padding: 6px 0;
-            padding-left: 24px;
-            position: relative;
-        }
-
-        .feature-list li:before {
-            content: "✓";
-            position: absolute;
-            left: 0;
-            color: #667eea;
-            font-weight: bold;
-        }
-
-        .error-message {
-            background: #ffebee;
-            border: 1px solid #ef5350;
-            color: #c62828;
-            padding: 12px;
-            border-radius: 6px;
-            margin-top: 10px;
-            font-size: 12px;
-            display: none;
-        }
-
-        .error-message.show {
-            display: block;
-        }
-
-        .toast-container {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            z-index: 9999;
-            max-width: 300px;
-        }
-
-        .toast {
-            background: #333;
-            color: white;
-            padding: 16px;
-            border-radius: 8px;
-            margin-top: 10px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            animation: slideIn 0.3s ease-out;
-            font-size: 13px;
-            line-height: 1.5;
-        }
-
-        .toast.success {
-            background: #4caf50;
-        }
-
-        .toast.error {
-            background: #f44336;
-        }
-
-        .toast.info {
-            background: #2196f3;
-        }
-
-        .toast.warning {
-            background: #ff9800;
-        }
-
-        @keyframes slideIn {
-            from {
-                transform: translateX(400px);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-
-        @keyframes slideOut {
-            from {
-                transform: translateX(0);
-                opacity: 1;
-            }
-            to {
-                transform: translateX(400px);
-                opacity: 0;
-            }
-        }
-
-        .toast.hide {
-            animation: slideOut 0.3s ease-out forwards;
-        }
-    </style>
+/* ==========================================================
+   8. NOSCRIPT + MOTION PREFERENCES
+   ========================================================== */
+.noscript-banner{
+  background:#fff7ed; color:#9a3412;
+  border:1px solid #fdba74; border-radius:var(--radius-sm);
+  padding:1rem 1.2rem; margin:1rem auto; max-width:1120px; font-size:.9rem;
+}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{ animation-duration:.01ms !important; transition-duration:.01ms !important; }
+}
+</style>
 </head>
 <body>
-    <div class="toast-container" id="toastContainer"></div>
-    
-    <div class="container">
-        <div class="header">
-            <h1>🛋️ View in Your Space</h1>
-            <p>See this product in AR before you buy</p>
-        </div>
 
-        <div class="content">
-            <!-- Left: 3D Viewer -->
-            <div class="viewer-section">
-                <div style="position: relative;">
-                    <model-viewer
-                        id="viewer"
-                        src="./chair.glb"
-                        alt="3D Product Model"
-                        ar
-                        ar-modes="webxr scene-viewer quick-look"
-                        camera-controls
-                        auto-rotate
-                        shadow-intensity="1"
-                        exposure="1"
-                    >
-                        <div class="progress-bar" slot="progress-bar"></div>
-                    </model-viewer>
-                    <div class="loading-spinner" id="loadingSpinner"></div>
-                </div>
-
-                <div class="error-message" id="errorMessage"></div>
-
-                <div class="controls">
-                    <button class="btn-ar" onclick="viewAR()">📱 Launch AR</button>
-                    <button class="btn-reset" onclick="resetView()">↻ Reset View</button>
-                </div>
-            </div>
-
-            <!-- Right: Info & QR -->
-            <div class="info-section">
-                <div class="info-card">
-                    <h3>How it works</h3>
-                    <p>Use the 3D viewer above to explore the product from all angles. Click "Launch AR" to see it in your space using your device's camera.</p>
-                </div>
-
-                <div class="info-card">
-                    <h3>Supported devices</h3>
-                    <ul class="feature-list">
-                        <li>iPhone 12+ (iOS 15+)</li>
-                        <li>Android 7+ with WebXR support</li>
-                        <li>Tablets (iPad, Android tablets)</li>
-                    </ul>
-                </div>
-
-                <div class="qr-section">
-                    <p style="margin-bottom: 12px; font-weight: 600;">Share this link</p>
-                    <div id="qrcode"></div>
-                    <p>Scan to view on your phone</p>
-                    <button class="copy-btn" onclick="copyLink()">📋 Copy Link</button>
-                </div>
-            </div>
-        </div>
+<header class="site-header">
+  <div class="inner">
+    <div class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 32 32" fill="currentColor"><path d="M16 2 3 9v14l13 7 13-7V9L16 2zm0 3.3L25.6 10 16 15.2 6.4 10 16 5.3zM6 12.6l9 4.9v9.2l-9-4.9v-9.2zm20 0v9.2l-9 4.9v-9.2l9-4.9z"/></svg>
     </div>
+    <div>
+      <div class="brand-name" id="brandName">WebAR Studio</div>
+      <div class="brand-sub">Augmented reality product experiences</div>
+    </div>
+    <span class="badge-ar"><span class="dot" aria-hidden="true"></span> AR&nbsp;Ready</span>
+  </div>
+</header>
 
-    <script>
-        // Configuration
-        const MODEL_FILE = "chair.glb";
-        const PRODUCT_NAME = "Product";
+<noscript>
+  <div class="noscript-banner">
+    <strong>JavaScript is required</strong> for the interactive 3D and AR experience.
+    Please enable JavaScript, or contact us for product photos and specifications.
+  </div>
+</noscript>
 
-        // Toast notification system
-        function showToast(message, type = 'info', duration = 4000) {
-            const container = document.getElementById('toastContainer');
-            const toast = document.createElement('div');
-            toast.className = `toast ${type}`;
-            toast.textContent = message;
-            container.appendChild(toast);
+<main>
+  <div class="product-intro">
+    <h1 id="productName">Modern Lounge Chair</h1>
+    <p id="productTagline">Explore it in 3D, then place it in your space with augmented reality.</p>
+  </div>
 
-            console.log(`[${type.toUpperCase()}] ${message}`);
+  <div class="layout">
+    <!-- ================= 3D VIEWER ================= -->
+    <section class="viewer-card" aria-label="Interactive 3D product viewer">
+      <div class="viewer-stage">
+        <div class="progress-track" aria-hidden="true"><div class="bar" id="progressBar"></div></div>
 
-            setTimeout(() => {
-                toast.classList.add('hide');
-                setTimeout(() => toast.remove(), 300);
-            }, duration);
-        }
+        <model-viewer
+          id="viewer"
+          src="chair.glb"
+          alt="Interactive 3D model of the product. Drag to rotate, scroll or pinch to zoom."
+          ar
+          ar-modes="webxr scene-viewer quick-look"
+          ar-scale="auto"
+          ar-placement="floor"
+          camera-controls
+          touch-action="pan-y"
+          auto-rotate
+          auto-rotate-delay="1800"
+          rotation-per-second="26deg"
+          interaction-prompt="auto"
+          shadow-intensity="1"
+          shadow-softness="0.9"
+          exposure="1"
+          tone-mapping="neutral"
+          loading="eager"
+          reveal="auto">
+        </model-viewer>
 
-        // Initialize
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('Page loaded, initializing...');
-            showToast('📍 Loading page...', 'info', 2000);
-            generateQR();
-            setupModelViewer();
-        });
+        <div class="viewer-tools">
+          <button class="tool-btn" id="btnRotate" aria-pressed="true" aria-label="Pause auto-rotation" title="Pause auto-rotation">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+          </button>
+          <button class="tool-btn" id="btnReset" aria-label="Reset camera view" title="Reset view">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l-2 3"/><path d="M3.5 15A9 9 0 1 0 6 5.3"/></svg>
+          </button>
+          <button class="tool-btn" id="btnShot" aria-label="Save a snapshot image of the 3D view" title="Save snapshot">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          </button>
+        </div>
 
-        // Setup model viewer with error handling
-        function setupModelViewer() {
-            const viewer = document.getElementById('viewer');
-            const spinner = document.getElementById('loadingSpinner');
-            const errorDiv = document.getElementById('errorMessage');
+        <!-- Loading / error overlay -->
+        <div class="overlay" id="overlay">
+          <div class="spinner" aria-hidden="true"></div>
+          <div class="error-icon" id="errorIcon" hidden aria-hidden="true">!</div>
+          <div class="load-title" id="overlayTitle">Preparing the 3D experience…</div>
+          <div class="load-detail" id="overlayDetail" role="status" aria-live="polite">Loading model — 0%</div>
+          <button class="btn-retry" id="btnRetry" hidden>Try again</button>
+        </div>
+      </div>
 
-            console.log('Model src:', viewer.src);
-            showToast('⏳ Loading 3D model...', 'info');
+      <div class="viewer-actions">
+        <button class="btn btn-primary" id="btnAR">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7.5 12 3l9 4.5M3 7.5v9L12 21m-9-13.5L12 12m9-4.5v9L12 21m9-13.5L12 12m0 9v-9"/></svg>
+          <span id="btnARLabel">View in Your Space</span>
+        </button>
+        <button class="btn btn-secondary" id="btnCopy">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <span id="btnCopyLabel">Copy Link</span>
+        </button>
+      </div>
+    </section>
 
-            // Model loaded successfully
-            viewer.addEventListener('load', function() {
-                console.log('✓ Model loaded successfully!');
-                spinner.style.display = 'none';
-                errorDiv.classList.remove('show');
-                showToast('✅ Model loaded! Ready for AR', 'success', 3000);
-            });
+    <!-- ================= SIDEBAR ================= -->
+    <aside class="side">
+      <section class="card" aria-label="How it works">
+        <h2>How it works</h2>
+        <ol class="steps">
+          <li><span class="num" aria-hidden="true">1</span><span><strong>Explore in 3D.</strong> Drag to rotate, pinch or scroll to zoom, two-finger drag to pan.</span></li>
+          <li><span class="num" aria-hidden="true">2</span><span><strong>Tap “View in Your Space.”</strong> Your camera opens and the product appears at true scale.</span></li>
+          <li><span class="num" aria-hidden="true">3</span><span><strong>Walk around it.</strong> Check the size, style, and fit before you buy.</span></li>
+        </ol>
+      </section>
 
-            // Model failed to load
-            viewer.addEventListener('error', function(e) {
-                console.error('✗ Model failed to load:', e);
-                spinner.style.display = 'none';
-                errorDiv.classList.add('show');
-                errorDiv.innerHTML = '⚠️ Failed to load 3D model. Check browser console (F12) for details.';
-                showToast('❌ Failed to load model', 'error', 5000);
-            });
+      <section class="card" aria-label="Model details" id="specCard" hidden>
+        <h2>Model details</h2>
+        <dl class="spec-grid">
+          <div class="spec"><dt>Width</dt><dd id="specW">—</dd></div>
+          <div class="spec"><dt>Height</dt><dd id="specH">—</dd></div>
+          <div class="spec"><dt>Depth</dt><dd id="specD">—</dd></div>
+          <div class="spec"><dt>File size</dt><dd id="specSize">—</dd></div>
+          <div class="spec"><dt>Format</dt><dd id="specFormat">GLB</dd></div>
+          <div class="spec"><dt>Loaded in</dt><dd id="specTime">—</dd></div>
+        </dl>
+      </section>
 
-            // Check if model is already loaded (cached)
-            setTimeout(() => {
-                if (viewer.modelIsVisible) {
-                    console.log('✓ Model already visible');
-                    spinner.style.display = 'none';
-                    showToast('✅ Model ready!', 'success', 2000);
-                }
-            }, 2000);
-        }
+      <section class="card qr-card" aria-label="Open on your phone">
+        <h2>Open on your phone</h2>
+        <p class="qr-hint">AR works on your phone or tablet — scan this code with your camera app.</p>
+        <div class="qr-frame"><div id="qrcode" role="img" aria-label="QR code linking to this page"></div></div>
+        <div class="share-row">
+          <button class="btn btn-secondary" id="btnShare" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg>
+            Share
+          </button>
+          <a class="btn btn-secondary" id="btnUsdz" hidden download>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+            USDZ
+          </a>
+        </div>
+      </section>
+    </aside>
+  </div>
+</main>
 
-        // Generate QR code
-        function generateQR() {
-            const qrcodeDiv = document.getElementById('qrcode');
-            qrcodeDiv.innerHTML = '';
-            new QRCode(qrcodeDiv, {
-                text: window.location.href,
-                width: 180,
-                height: 180,
-                colorDark: '#667eea',
-                colorLight: '#ffffff',
-            });
-        }
+<footer class="site-footer">
+  <span id="footerText">Powered by <a href="#" rel="noopener">WebAR Studio</a> · Works on iPhone, iPad &amp; Android</span>
+</footer>
 
-        // Launch AR view
-        function viewAR() {
-            const viewer = document.getElementById('viewer');
-            showToast('🚀 Launching AR...', 'info', 2000);
-            console.log('Launching AR... Model visible:', viewer.modelIsVisible);
-            
-            try {
-                if (!viewer.modelIsVisible) {
-                    showToast('⏳ Model still loading, wait a moment...', 'warning', 3000);
-                    return;
-                }
+<!-- Toast notifications (also announced to screen readers) -->
+<div class="toast-region" id="toastRegion" aria-live="polite" aria-atomic="false"></div>
 
-                showToast('📱 Opening camera (check device)...', 'info', 2000);
-                
-                // Method 1: activateAR
-                if (typeof viewer.activateAR === 'function') {
-                    console.log('Using activateAR method');
-                    viewer.activateAR();
-                    showToast('✅ AR activated!', 'success', 2000);
-                } 
-                // Method 2: Click AR button in shadow DOM
-                else if (viewer.shadowRoot) {
-                    const arButton = viewer.shadowRoot.querySelector('[ar-button]') || 
-                                    viewer.shadowRoot.querySelector('button[aria-label*="View"]');
-                    if (arButton) {
-                        console.log('Clicking AR button in shadow DOM');
-                        arButton.click();
-                        showToast('✅ AR button clicked!', 'success', 2000);
-                    } else {
-                        throw new Error('AR button not found in shadow DOM');
-                    }
-                }
-                // Method 3: Direct AR attribute
-                else {
-                    console.log('Using fallback AR method');
-                    viewer.setAttribute('ar', 'true');
-                    showToast('✅ AR mode activated!', 'success', 2000);
-                }
-            } catch (e) {
-                console.error('AR Error:', e);
-                showToast(`❌ AR Error: ${e.message}`, 'error', 5000);
-            }
-        }
+<script>
+"use strict";
+/* ============================================================
+   CONFIG — the only JS you edit per client
+   ============================================================ */
+const CONFIG = {
+  brandName:      "WebAR Studio",
+  productName:    "Modern Lounge Chair",
+  productTagline: "Explore it in 3D, then place it in your space with augmented reality.",
+  modelSrc:       "chair.glb",
+  modelIosSrc:    "",      // optional .usdz for iOS Quick Look; "" = auto-detect <modelSrc>.usdz
+  posterSrc:      "",      // optional poster image shown before the model loads
+  debugToasts:    true     // show status toasts (loading, AR events) — great for demos
+};
 
-        // Reset view
-        function resetView() {
-            const viewer = document.getElementById('viewer');
-            showToast('↻ Resetting view...', 'info', 1500);
-            try {
-                if (typeof viewer.resetTurntable === 'function') {
-                    viewer.resetTurntable();
-                    showToast('✅ View reset!', 'success', 1500);
-                } else {
-                    console.log('Using fallback reset method');
-                    viewer.cameraOrbit = '0deg 75deg 105%';
-                    showToast('✅ View reset!', 'success', 1500);
-                }
-            } catch (e) {
-                console.error('Reset Error:', e);
-                showToast(`❌ Reset failed: ${e.message}`, 'error', 3000);
-            }
-        }
+(function app(){
+  /* ---------- element refs ---------- */
+  const $ = (id) => document.getElementById(id);
+  const viewer   = $("viewer");
+  const overlay  = $("overlay");
+  const oTitle   = $("overlayTitle");
+  const oDetail  = $("overlayDetail");
+  const oErrIcon = $("errorIcon");
+  const btnRetry = $("btnRetry");
+  const progress = $("progressBar");
+  const progressTrack = progress.parentElement;
 
-        // Copy link
-        function copyLink() {
-            const url = window.location.href;
-            navigator.clipboard.writeText(url).then(() => {
-                const btn = event.target;
-                btn.classList.add('copied');
-                btn.textContent = '✓ Copied!';
-                showToast('📋 Link copied to clipboard!', 'success', 2000);
-                setTimeout(() => {
-                    btn.classList.remove('copied');
-                    btn.textContent = '📋 Copy Link';
-                }, 2000);
-            }).catch(err => {
-                showToast('❌ Copy failed', 'error', 2000);
-                console.error('Copy error:', err);
-            });
-        }
-    </script>
+  /* ---------- apply config to the page ---------- */
+  $("brandName").textContent   = CONFIG.brandName;
+  $("productName").textContent = CONFIG.productName;
+  $("productTagline").textContent = CONFIG.productTagline;
+  $("footerText").innerHTML = `Powered by <a href="#" rel="noopener">${escapeHtml(CONFIG.brandName)}</a> · Works on iPhone, iPad &amp; Android`;
+  document.title = `${CONFIG.productName} — View in Your Space`;
+  viewer.setAttribute("src", CONFIG.modelSrc);
+  viewer.setAttribute("alt", `Interactive 3D model of ${CONFIG.productName}. Drag to rotate, scroll or pinch to zoom.`);
+  if (CONFIG.posterSrc) viewer.setAttribute("poster", CONFIG.posterSrc);
+
+  function escapeHtml(s){
+    return s.replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+  }
+
+  /* ============================================================
+     TOASTS — real-time status for UX and debugging
+     ============================================================ */
+  const TOAST_ICONS = { info:"ℹ️", success:"✅", warning:"⚠️", error:"❌" };
+  function toast(message, type = "info", duration = 3500){
+    console.log(`[${type.toUpperCase()}] ${message}`);
+    if (!CONFIG.debugToasts && type === "info") return;
+    const region = $("toastRegion");
+    // keep at most 3 toasts on screen
+    while (region.children.length >= 3) region.firstElementChild.remove();
+    const el = document.createElement("div");
+    el.className = `toast ${type}`;
+    el.innerHTML = `<span class="t-icon" aria-hidden="true">${TOAST_ICONS[type] || ""}</span><span></span><button class="t-close" aria-label="Dismiss notification">×</button>`;
+    el.children[1].textContent = message;
+    const dismiss = () => { el.classList.add("hide"); setTimeout(() => el.remove(), 260); };
+    el.querySelector(".t-close").addEventListener("click", dismiss);
+    region.appendChild(el);
+    if (duration > 0) setTimeout(dismiss, duration);
+    return el;
+  }
+
+  /* ============================================================
+     LOADING, PROGRESS & ERROR HANDLING
+     ============================================================ */
+  const loadStart = performance.now();
+  let modelLoaded = false;
+  let slowNetTimer = setTimeout(() => {
+    if (!modelLoaded) toast("Still loading — large model or slow connection. Hang tight!", "warning", 5000);
+  }, 8000);
+
+  viewer.addEventListener("progress", (e) => {
+    const pct = Math.round((e.detail.totalProgress || 0) * 100);
+    progress.style.width = pct + "%";
+    oDetail.textContent = `Loading model — ${pct}%`;
+  });
+
+  viewer.addEventListener("load", () => {
+    modelLoaded = true;
+    clearTimeout(slowNetTimer);
+    progress.style.width = "100%";
+    progressTrack.classList.add("done");
+    overlay.classList.add("fade-out");
+    setTimeout(() => { overlay.hidden = true; }, 400);
+    const secs = ((performance.now() - loadStart) / 1000).toFixed(1);
+    toast(`3D model ready in ${secs}s — drag to explore`, "success", 3000);
+    fillSpecs(secs);
+    updateARButton();
+  });
+
+  viewer.addEventListener("error", (e) => {
+    clearTimeout(slowNetTimer);
+    console.error("model-viewer error:", e);
+    showLoadError(
+      navigator.onLine
+        ? "We couldn't load the 3D model. The file may be missing or corrupted."
+        : "You appear to be offline. Reconnect and try again."
+    );
+  });
+
+  function showLoadError(message){
+    overlay.hidden = false;
+    overlay.classList.remove("fade-out");
+    overlay.classList.add("is-error");
+    oErrIcon.hidden = false;
+    oTitle.textContent = "Something went wrong";
+    oDetail.textContent = message;
+    btnRetry.hidden = false;
+    toast("Failed to load the 3D model", "error", 6000);
+  }
+
+  btnRetry.addEventListener("click", () => {
+    overlay.classList.remove("is-error");
+    oErrIcon.hidden = true;
+    btnRetry.hidden = true;
+    oTitle.textContent = "Preparing the 3D experience…";
+    oDetail.textContent = "Loading model — 0%";
+    progress.style.width = "0%";
+    toast("Retrying model load…", "info", 2000);
+    const src = viewer.getAttribute("src");
+    viewer.removeAttribute("src");
+    requestAnimationFrame(() => viewer.setAttribute("src", src + (src.includes("?") ? "&" : "?") + "retry=" + Date.now()));
+  });
+
+  // If the model-viewer library itself never registers (CDN blocked / offline first visit)
+  setTimeout(() => {
+    if (!customElements.get("model-viewer")) {
+      showLoadError("The 3D viewer library couldn't be loaded. Check your connection and refresh.");
+    }
+  }, 10000);
+
+  // Connectivity feedback
+  window.addEventListener("offline", () => toast("You're offline — AR and sharing may not work until you reconnect.", "warning", 5000));
+  window.addEventListener("online",  () => toast("Back online.", "success", 2500));
+
+  /* ============================================================
+     MODEL SPECS PANEL (dimensions, file size, load time)
+     ============================================================ */
+  async function fillSpecs(loadSecs){
+    try {
+      const d = viewer.getDimensions(); // meters
+      const cm = (m) => m >= 1 ? (m).toFixed(2) + " m" : Math.round(m * 100) + " cm";
+      $("specW").textContent = cm(d.x);
+      $("specH").textContent = cm(d.y);
+      $("specD").textContent = cm(d.z);
+      $("specTime").textContent = loadSecs + " s";
+      $("specCard").hidden = false;
+    } catch (err) { console.warn("Could not read model dimensions:", err); }
+    try {
+      const res = await fetch(CONFIG.modelSrc, { method:"HEAD" });
+      const bytes = Number(res.headers.get("content-length"));
+      if (bytes) $("specSize").textContent = bytes > 1048576
+        ? (bytes / 1048576).toFixed(1) + " MB"
+        : Math.round(bytes / 1024) + " KB";
+    } catch (err) { console.warn("Could not read model file size:", err); }
+  }
+
+  /* ============================================================
+     AR LAUNCH
+     ============================================================ */
+  const btnAR = $("btnAR");
+  const isMobileUA = /android|iphone|ipad|ipod/i.test(navigator.userAgent)
+    || (navigator.maxTouchPoints > 1 && /mac/i.test(navigator.platform)); // iPadOS pretends to be a Mac
+
+  function updateARButton(){
+    if (viewer.canActivateAR) {
+      $("btnARLabel").textContent = "View in Your Space";
+      btnAR.disabled = false;
+    } else if (!isMobileUA) {
+      // Desktop: AR isn't possible here — route people to the QR code
+      $("btnARLabel").textContent = "View on Your Phone";
+      btnAR.disabled = false;
+    }
+  }
+
+  btnAR.addEventListener("click", () => {
+    if (!modelLoaded) { toast("The model is still loading — one moment…", "warning", 3000); return; }
+    if (viewer.canActivateAR) {
+      toast("Launching AR — allow camera access if prompted", "info", 3000);
+      try { viewer.activateAR(); }
+      catch (err) {
+        console.error("activateAR failed:", err);
+        toast("Couldn't start AR: " + err.message, "error", 5000);
+      }
+    } else if (!isMobileUA) {
+      document.querySelector(".qr-card").scrollIntoView({ behavior:"smooth", block:"center" });
+      toast("AR needs a phone or tablet — scan the QR code with your camera.", "info", 5000);
+    } else {
+      toast("AR isn't supported on this device or browser. Try Safari (iOS) or Chrome (Android).", "warning", 6000);
+    }
+  });
+
+  viewer.addEventListener("ar-status", (e) => {
+    switch (e.detail.status) {
+      case "session-started": toast("AR session started — move your phone to scan the floor", "success", 4000); break;
+      case "object-placed":   toast("Placed! Walk around to see it from every angle.", "success", 4000); break;
+      case "failed":          toast("AR couldn't start on this device. Try better lighting or a different surface.", "error", 6000); break;
+      case "not-presenting":  toast("AR session ended", "info", 2000); break;
+    }
+  });
+
+  /* ---------- iOS Quick Look: auto-detect a matching .usdz ---------- */
+  (async function setupUsdz(){
+    let usdz = CONFIG.modelIosSrc;
+    if (!usdz) {
+      const candidate = CONFIG.modelSrc.replace(/\.glb$/i, ".usdz");
+      if (candidate !== CONFIG.modelSrc) {
+        try {
+          const res = await fetch(candidate, { method:"HEAD" });
+          if (res.ok) usdz = candidate;
+        } catch (_) { /* no usdz available — Scene Viewer/WebXR still work */ }
+      }
+    }
+    if (usdz) {
+      viewer.setAttribute("ios-src", usdz);
+      const link = $("btnUsdz");
+      link.href = usdz;
+      link.hidden = false;
+      console.log("Quick Look enabled with", usdz);
+    }
+  })();
+
+  /* ============================================================
+     VIEWER TOOLS — rotate toggle, reset, snapshot
+     ============================================================ */
+  const btnRotate = $("btnRotate");
+  // Respect reduced-motion preferences: start with rotation off
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    viewer.removeAttribute("auto-rotate");
+    btnRotate.setAttribute("aria-pressed", "false");
+    btnRotate.setAttribute("aria-label", "Resume auto-rotation");
+    btnRotate.title = "Resume auto-rotation";
+  }
+  btnRotate.addEventListener("click", () => {
+    const on = viewer.hasAttribute("auto-rotate");
+    viewer.toggleAttribute("auto-rotate", !on);
+    btnRotate.setAttribute("aria-pressed", String(!on));
+    const label = on ? "Resume auto-rotation" : "Pause auto-rotation";
+    btnRotate.setAttribute("aria-label", label);
+    btnRotate.title = label;
+    toast(on ? "Auto-rotation paused" : "Auto-rotation resumed", "info", 1800);
+  });
+
+  $("btnReset").addEventListener("click", () => {
+    viewer.cameraOrbit = "0deg 75deg auto";
+    viewer.cameraTarget = "auto auto auto";
+    viewer.fieldOfView = "auto";
+    if (typeof viewer.resetTurntableRotation === "function") viewer.resetTurntableRotation();
+    toast("View reset", "info", 1500);
+  });
+
+  $("btnShot").addEventListener("click", async () => {
+    if (!modelLoaded) { toast("Wait for the model to finish loading first.", "warning", 2500); return; }
+    try {
+      const blob = await viewer.toBlob({ idealAspect: false });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = CONFIG.productName.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-snapshot.png";
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      toast("Snapshot saved", "success", 2500);
+    } catch (err) {
+      console.error("Snapshot failed:", err);
+      toast("Couldn't capture a snapshot on this browser.", "error", 4000);
+    }
+  });
+
+  /* ============================================================
+     SHARING — QR code, copy link, native share
+     ============================================================ */
+  const pageUrl = window.location.href;
+
+  function buildQR(){
+    const box = $("qrcode");
+    if (typeof QRCode === "undefined") return false;
+    box.innerHTML = "";
+    new QRCode(box, {
+      text: pageUrl,
+      width: 150, height: 150,
+      colorDark: getComputedStyle(document.documentElement).getPropertyValue("--text").trim() || "#16181d",
+      colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.M
+    });
+    return true;
+  }
+  // qrcode.js is loaded with `defer`; retry briefly, then fall back to a plain URL
+  let qrTries = 0;
+  (function tryQR(){
+    if (buildQR()) return;
+    if (++qrTries < 20) { setTimeout(tryQR, 250); return; }
+    $("qrcode").innerHTML = `<p class="qr-fallback">QR unavailable — open this link on your phone:<br><strong>${escapeHtml(pageUrl)}</strong></p>`;
+    console.warn("QR library failed to load; showing plain URL fallback.");
+  })();
+
+  async function copyText(text){
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (_) {
+      // Fallback for non-secure contexts / older browsers
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.cssText = "position:fixed;opacity:0";
+      document.body.appendChild(ta);
+      ta.select();
+      let ok = false;
+      try { ok = document.execCommand("copy"); } catch (_) {}
+      ta.remove();
+      return ok;
+    }
+  }
+
+  $("btnCopy").addEventListener("click", async () => {
+    const ok = await copyText(pageUrl);
+    if (ok) {
+      toast("Link copied to clipboard", "success", 2500);
+      const label = $("btnCopyLabel");
+      label.textContent = "Copied!";
+      setTimeout(() => { label.textContent = "Copy Link"; }, 2000);
+    } else {
+      toast("Couldn't copy automatically — long-press the address bar to copy the URL.", "error", 5000);
+    }
+  });
+
+  if (navigator.share) {
+    const btnShare = $("btnShare");
+    btnShare.hidden = false;
+    btnShare.addEventListener("click", async () => {
+      try {
+        await navigator.share({ title: CONFIG.productName, text: `Check out ${CONFIG.productName} in AR`, url: pageUrl });
+        toast("Thanks for sharing!", "success", 2500);
+      } catch (err) {
+        if (err.name !== "AbortError") toast("Sharing failed: " + err.message, "error", 3500);
+      }
+    });
+  }
+
+  /* ---------- welcome ---------- */
+  toast(`Welcome! Loading ${CONFIG.productName}…`, "info", 2500);
+})();
+</script>
 </body>
 </html>
